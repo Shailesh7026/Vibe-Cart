@@ -6,7 +6,12 @@ export const checkout = async (req, res, next) => {
     const { name, email } = req.body;
 
     const cart = await CartItem.findOne({ userId })
-      .populate('products.productId');
+      .populate({
+        path: 'products.productId',
+        model: 'Product',
+        localField: 'products.productId',
+        foreignField: 'public_id'
+      });
 
     if (!cart || cart.products.length === 0) {
       return res.status(400).json({
@@ -15,16 +20,23 @@ export const checkout = async (req, res, next) => {
       });
     }
 
-    const total = cart.products.reduce(
-      (sum, { productId, qty }) => sum + (productId.price * qty),
+    // Format items so populated product docs include qty
+    const formattedItems = cart.products.map((item) => {
+      const prodDoc = item.productId && item.productId._doc ? item.productId._doc : (typeof item.productId === 'string' ? { public_id: item.productId } : {});
+      return {
+        ...prodDoc,
+        qty: item.qty
+      };
+    });
+
+    // Calculate total safely (handles missing price)
+    const total = formattedItems.reduce(
+      (sum, p) => sum + ((p.price || 0) * p.qty),
       0
     );
 
-
-    // Delete Cart
+    // Remove cart after checkout
     await CartItem.deleteOne({ userId });
-
-    //In future add Order record here
 
     res.status(200).json({
       success: true,
@@ -32,7 +44,7 @@ export const checkout = async (req, res, next) => {
       receipt: {
         name,
         email,
-        items: cart.products,
+        items: formattedItems,
         total,
         timestamp: new Date().toISOString()
       }

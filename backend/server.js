@@ -17,7 +17,12 @@ connectDB();
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5174', 
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
